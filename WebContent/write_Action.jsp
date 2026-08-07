@@ -1,66 +1,74 @@
-<%@ page language="java" contentType="text/html; charset=UTF-8"
-	pageEncoding="UTF-8"%>
-<%@ page import="user.WriteDAO"%>
-
-<!-- bbsdao의 클래스 가져옴 -->
-<%@ page import="java.io.PrintWriter"%>
-
-<!-- 자바 클래스 사용 -->
+<%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8"%>
+<%@ page import="java.io.*, java.sql.*, jakarta.servlet.http.Part"%>
 <%
-	request.setCharacterEncoding("UTF-8");
-	response.setContentType("text/html; charset=UTF-8"); //set으로쓰는습관들이세오.
+  if (session.getAttribute("loginUser") == null) {
+    response.sendRedirect("main.jsp");
+    return;
+  }
+  request.setCharacterEncoding("UTF-8");
+  String writer = (String) session.getAttribute("loginUser"); // DB 컬럼명: id
+
+  // 일반 폼 필드
+  String trip  = request.getParameter("trip");
+  String title = request.getParameter("title");
+  String memo  = request.getParameter("memo");
+  String wyear  = request.getParameter("wyear");
+  String wmonth = request.getParameter("wmonth");
+  String wday   = request.getParameter("wday");
+  String wtime  = request.getParameter("wtime");
+  String writeDatetime = null;
+  if (wyear != null && wmonth != null && wday != null && wtime != null && !wtime.isEmpty()) {
+    writeDatetime = wyear + "-" + wmonth + "-" + wday + " " + wtime + ":00";
+  }
+
+  // 입력값 검증
+  if (trip == null || trip.trim().isEmpty() ||
+      title == null || title.trim().isEmpty() ||
+      memo == null || memo.trim().isEmpty()) {
+    out.println("<script>alert('입력이 안 된 사항이 있습니다'); history.back();</script>");
+    return;
+  }
+
+  // 이미지 업로드 + DB 저장
+  try {
+    String savedFileName = null;
+    Part imagePart = request.getPart("image");
+    if (imagePart != null && imagePart.getSize() > 0) {
+      String uploadDir = application.getRealPath("/uploads");
+      new File(uploadDir).mkdirs();
+
+      String header = imagePart.getHeader("content-disposition");
+      String originalName = "upload.jpg";
+      for (String token : header.split(";")) {
+        if (token.trim().startsWith("filename")) {
+          originalName = token.substring(token.indexOf('=') + 1).trim().replace("\"", "");
+        }
+      }
+      String ext = originalName.contains(".") ? originalName.substring(originalName.lastIndexOf('.')) : ".jpg";
+      savedFileName = System.currentTimeMillis() + ext;
+      imagePart.write(uploadDir + File.separator + savedFileName);
+    }
+
+    Connection conn = db.DBUtil.getConnection();
+    String dateVal = (writeDatetime != null) ? "?" : "NOW()";
+    PreparedStatement pstmt = conn.prepareStatement(
+      "INSERT INTO test.`write` (trip, title, memo, image, sysdate, id) VALUES (?,?,?,?," + dateVal + ",?)");
+    pstmt.setString(1, trip);
+    pstmt.setString(2, title);
+    pstmt.setString(3, memo);
+    pstmt.setString(4, savedFileName);
+    if (writeDatetime != null) {
+      pstmt.setString(5, writeDatetime);
+      pstmt.setString(6, writer);
+    } else {
+      pstmt.setString(5, writer);
+    }
+    pstmt.executeUpdate();
+    pstmt.close();
+    conn.close();
+    out.println("<script>location.href='Calendar.jsp';</script>");
+  } catch (Exception e) {
+    e.printStackTrace();
+    out.println("<script>alert('오류: " + e.getMessage() + "'); history.back();</script>");
+  }
 %>
-
-<!-- 한명의 회원정보를 담는 user클래스를 자바 빈즈로 사용 / scope:페이지 현재의 페이지에서만 사용-->
-
-<jsp:useBean id="user" class="user.User" scope="page" />
-
-<jsp:setProperty name="user" property="trip" />
-<jsp:setProperty name="user" property="title" />
-<jsp:setProperty name="user" property="memo" />
-
-<%
-	System.out.println(user);
-%>
-
-<!DOCTYPE html>
-<html>
-<head>
-<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
-
-<title>글쓰기</title>
-</head>
-<body>
-	<%
-		if (user.getTrip() == null || user.getTitle() == null || user.getMemo() == null) {
-			PrintWriter script = response.getWriter();
-			script.println("<script>");
-			script.println("alert('입력이 안된 사항이 있습니다')");
-			script.println("history.back()");
-			script.println("</script>");
-
-		} else {
-
-			WriteDAO WriteDAO = new WriteDAO();
-			int result = WriteDAO.write(user);
-			if (result == -1) {
-
-				PrintWriter script = response.getWriter();
-				script.println("<script>");
-				script.println("alert('글쓰기에 실패했습니다')");
-				script.println("history.back()");
-				script.println("</script>");
-
-			} else {
-
-				PrintWriter script = response.getWriter();
-				script.println("<script>");
-				script.println("location.href='Calendar.jsp'");
-				script.println("</script>");
-			}
-		}
-	%>
-
-</body>
-
-</html>

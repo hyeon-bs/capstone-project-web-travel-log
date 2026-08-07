@@ -1,39 +1,30 @@
 package user;
 
 import java.sql.Connection;
-import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import db.DBUtil;
 
 public class UserDAO {
-	// dao : µ¥ÀÌÅÍº£ÀÌ½º Á¢±Ù °´Ã¼ÀÇ ¾àÀÚ·Î¼­
+	// dao : ï¿½ï¿½ï¿½ï¿½ï¿½Íºï¿½ï¿½Ì½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½Ã¼ï¿½ï¿½ ï¿½ï¿½ï¿½Ú·Î¼ï¿½
 
-	// ½ÇÁúÀûÀ¸·Î db¿¡¼­ È¸¿øÁ¤º¸ ºÒ·¯¿À°Å³ª db¿¡ È¸¿øÁ¤º¸ ³ÖÀ»¶§
+	// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ dbï¿½ï¿½ï¿½ï¿½ È¸ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½Ò·ï¿½ï¿½ï¿½ï¿½Å³ï¿½ dbï¿½ï¿½ È¸ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 
-	private Connection conn; // connection:db¿¡Á¢±ÙÇÏ°Ô ÇØÁÖ´Â °´Ã¼
+	private Connection conn; // connection:dbï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ï°ï¿½ ï¿½ï¿½ï¿½Ö´ï¿½ ï¿½ï¿½Ã¼
 	private PreparedStatement pstmt;
 	private ResultSet rs;
 
-	// mysql¿¡ Á¢¼ÓÇØ ÁÖ´Â ºÎºÐ
+	// mysqlï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½Ö´ï¿½ ï¿½Îºï¿½
 
-	public UserDAO() { // »ý¼ºÀÚ ½ÇÇàµÉ¶§¸¶´Ù ÀÚµ¿À¸·Î db¿¬°áÀÌ ÀÌ·ç¾î Áú ¼ö ÀÖµµ·ÏÇÔ
-
+	public UserDAO() {
 		try {
-
-			String dbURL = "jdbc:mysql://localhost:3306/test"
-					+ ""; // localhost:3306 Æ÷Æ®´Â ÄÄÇ»ÅÍ¼³Ä¡µÈ mysqlÁÖ¼Ò
-			String dbID = "root";
-			String dbPassword = "20163291";
-			Class.forName("com.mysql.jdbc.Driver");
-
-			conn = DriverManager.getConnection(dbURL, dbID, dbPassword);
-
+			conn = DBUtil.getConnection();
 		} catch (Exception e) {
-			e.printStackTrace(); // ¿À·ù°¡ ¹«¾ùÀÎÁö Ãâ·Â
+			e.printStackTrace();
 		}
 	}
 
-	// ·Î±×ÀÎÀ» ½ÃµµÇÏ´Â ÇÔ¼ö****
+	// ï¿½Î±ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½Ãµï¿½ï¿½Ï´ï¿½ ï¿½Ô¼ï¿½****
 
 	public int login(String id, String pw) {
 		String SQL = "SELECT pw FROM test.impormation WHERE id = ?";
@@ -46,19 +37,19 @@ public class UserDAO {
 			if (rs.next()) {
 
 				if (rs.getString(1).equals(pw)) {
-					return 1; // ·Î±×ÀÎ ¼º°ø
+					return 1; // ï¿½Î±ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
 				} else
-					return 0; // ºñ¹Ð¹øÈ£ ºÒÀÏÄ¡
+					return 0; // ï¿½ï¿½Ð¹ï¿½È£ ï¿½ï¿½ï¿½ï¿½Ä¡
 			}
-			return -1; // ¾ÆÀÌµð°¡ ¾øÀ½ ¿À·ù
+			return -1; // ï¿½ï¿½ï¿½Ìµï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
-		return -2; // µ¥ÀÌÅÍº£ÀÌ½º ¿À·ù¸¦ ÀÇ¹Ì
+		return -2; // ï¿½ï¿½ï¿½ï¿½ï¿½Íºï¿½ï¿½Ì½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½Ç¹ï¿½
 	}
 	
 	
-	//È¸¿ø°¡ÀÔ Ãß°¡
+	//È¸ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ß°ï¿½
 	public int sign_up(User user) {
 
 		String SQL = "INSERT INTO test.impormation VALUES (?,?,?,?,?,?)";
@@ -80,6 +71,6 @@ public class UserDAO {
 
 			e.printStackTrace();
 		}
-		return -1; // DB ¿À·ù
+		return -1; // DB ï¿½ï¿½ï¿½ï¿½
 	}
 }

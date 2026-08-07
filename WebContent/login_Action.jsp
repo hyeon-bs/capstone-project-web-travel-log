@@ -39,9 +39,10 @@
 		//로그인 성공
 
 		if (result == 1) {
+			session.setAttribute("loginUser", user.getId());
 			PrintWriter script = response.getWriter();
 			script.println("<script>");
-			script.println("<location.href = 'Calendar.jsp'");
+			script.println("location.href = 'Calendar.jsp'");
 			script.println("</script>");
 		}
 

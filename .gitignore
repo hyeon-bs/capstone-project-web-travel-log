@@ -1,0 +1,33 @@
+# Database credentials
+src/db.properties
+
+# Build artifacts
+build/
+dist/
+*.class
+*.jar
+*.war
+
+# SQL dumps
+*.sql
+sql/
+
+# Media files
+*.mov
+*.mp4
+*.mkv
+*.avi
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/

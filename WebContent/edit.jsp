@@ -1,4 +1,5 @@
 <%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8" isELIgnored="true"%>
+<%@ page import="java.sql.*"%>
 <%
   response.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
   response.setHeader("Pragma", "no-cache");
@@ -7,64 +8,106 @@
     response.sendRedirect("main.jsp");
     return;
   }
+  request.setCharacterEncoding("UTF-8");
+  String loginUser = (String) session.getAttribute("loginUser");
+
+  String ts = request.getParameter("ts"); // sysdate 초단위 (식별자)
+  if (ts == null || ts.isEmpty()) {
+    response.sendRedirect("List.jsp");
+    return;
+  }
+
+  String dbTrip = "", dbTitle = "", dbMemo = "", dbImage = "";
+  try {
+    Connection conn = db.DBUtil.getConnection();
+    PreparedStatement ps = conn.prepareStatement(
+      "SELECT trip, title, memo, image, id FROM test.`write` WHERE DATE_FORMAT(sysdate,'%Y-%m-%d %H:%i:%S')=?");
+    ps.setString(1, ts);
+    ResultSet rs = ps.executeQuery();
+    if (rs.next()) {
+      String owner = rs.getString("id");
+      if (!loginUser.equals(owner)) {
+        rs.close(); ps.close(); conn.close();
+        response.sendRedirect("List.jsp");
+        return;
+      }
+      dbTrip  = rs.getString("trip")  != null ? rs.getString("trip")  : "";
+      dbTitle = rs.getString("title") != null ? rs.getString("title") : "";
+      dbMemo  = rs.getString("memo")  != null ? rs.getString("memo")  : "";
+      dbImage = rs.getString("image") != null ? rs.getString("image") : "";
+    } else {
+      rs.close(); ps.close(); conn.close();
+      response.sendRedirect("List.jsp");
+      return;
+    }
+    rs.close(); ps.close(); conn.close();
+  } catch (Exception e) { e.printStackTrace(); }
+
+  String safeTrip  = dbTrip.replace("&","&amp;").replace("<","&lt;").replace("\"","&quot;");
+  String safeTitle = dbTitle.replace("&","&amp;").replace("<","&lt;").replace("\"","&quot;");
+  String safeMemo  = dbMemo.replace("&","&amp;").replace("<","&lt;");
+  String safeTs    = ts.replace("&","&amp;").replace("\"","&quot;");
 %>
 <!DOCTYPE html>
 <html>
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>TravelLog — 일지 작성</title>
+<title>TravelLog — 일지 수정</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body { font-family: 'Inter', sans-serif; background: #0f172a; min-height: 100vh; color: #fff; }
-
   .nav-bar {
     display: flex; align-items: center; justify-content: space-between;
-    padding: 16px 32px; background: rgba(255,255,255,0.04);
+    padding: 14px 28px; background: rgba(10,15,35,0.9);
     border-bottom: 1px solid rgba(255,255,255,0.08);
-    backdrop-filter: blur(12px); position: sticky; top: 0; z-index: 10;
+    position: sticky; top: 0; z-index: 10; backdrop-filter: blur(12px);
   }
-  .nav-logo { font-size: 20px; font-weight: 700; color: #fff; }
+  .nav-logo { font-size: 20px; font-weight: 700; }
   .nav-logo span { color: #60a5fa; }
-  .nav-back {
-    padding: 8px 16px; border-radius: 8px;
-    background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.12);
-    color: rgba(255,255,255,0.8); font-size: 13px; font-weight: 500;
-    cursor: pointer; font-family: 'Inter', sans-serif; transition: all 0.15s;
+  .nav-btn {
+    padding: 7px 14px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.12);
+    background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.8);
+    font-size: 13px; font-weight: 500; cursor: pointer;
+    font-family: 'Inter', sans-serif; transition: all 0.15s;
   }
-  .nav-back:hover { background: rgba(255,255,255,0.14); color: #fff; }
-
-  .page-wrapper { max-width: 720px; margin: 0 auto; padding: 40px 24px; }
-  .page-title { font-size: 26px; font-weight: 700; margin-bottom: 6px; }
-  .page-sub { color: rgba(255,255,255,0.45); font-size: 14px; margin-bottom: 36px; }
-
-  .card {
-    background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);
-    border-radius: 20px; padding: 32px; margin-bottom: 16px;
+  .nav-btn:hover { background: rgba(255,255,255,0.14); color: #fff; }
+  .page-wrapper { max-width: 620px; margin: 48px auto; padding: 0 20px 80px; }
+  .page-title { font-size: 22px; font-weight: 700; margin-bottom: 28px; }
+  .form-card {
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 18px; padding: 32px 28px;
   }
-  .form-group { margin-bottom: 20px; }
+  .form-group { margin-bottom: 18px; }
   .form-group label {
     display: block; font-size: 11px; font-weight: 600;
     color: rgba(255,255,255,0.45); text-transform: uppercase;
-    letter-spacing: 1px; margin-bottom: 8px;
+    letter-spacing: 0.8px; margin-bottom: 8px;
   }
-  .form-control {
-    width: 100%; padding: 13px 16px;
-    background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12);
-    border-radius: 12px; color: #fff; font-size: 14px; font-family: 'Inter', sans-serif;
-    outline: none; transition: border-color 0.2s, background 0.2s;
+  .form-group input,
+  .form-group textarea {
+    width: 100%; padding: 12px 14px;
+    background: rgba(255,255,255,0.07);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 10px; color: #fff;
+    font-size: 14px; font-family: 'Inter', sans-serif;
+    outline: none; transition: border-color 0.2s, background 0.2s; resize: vertical;
   }
-  .form-control::placeholder { color: rgba(255,255,255,0.25); }
-  .form-control:focus { border-color: #60a5fa; background: rgba(96,165,250,0.07); }
-  textarea.form-control { resize: vertical; }
+  .form-group input::placeholder,
+  .form-group textarea::placeholder { color: rgba(255,255,255,0.3); }
+  .form-group input:focus,
+  .form-group textarea:focus { border-color: #60a5fa; background: rgba(96,165,250,0.08); }
+  .current-image { margin-top: 8px; font-size: 12px; color: rgba(255,255,255,0.4); }
+  .current-image span { color: #60a5fa; }
 
-  /* 국가 검색 */
+  /* 여행지 검색 */
   .country-wrap { position: relative; }
   .country-search {
-    width: 100%; padding: 13px 16px;
-    background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12);
-    border-radius: 12px; color: #fff; font-size: 14px; font-family: 'Inter', sans-serif;
+    width: 100%; padding: 12px 14px;
+    background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 10px; color: #fff; font-size: 14px; font-family: 'Inter', sans-serif;
     outline: none; transition: border-color 0.2s; box-sizing: border-box;
   }
   .country-search::placeholder { color: rgba(255,255,255,0.3); }
@@ -84,16 +127,14 @@
   .country-group-label:first-child { border-top: none; margin-top: 0; }
   .country-opt {
     padding: 10px 16px; cursor: pointer; font-size: 14px; font-weight: 500;
-    color: #ffffff; display: flex; align-items: center; gap: 10px;
-    transition: background 0.1s;
+    color: #fff; display: flex; align-items: center; gap: 10px; transition: background 0.1s;
   }
-  .country-opt:hover, .country-opt.active { background: rgba(96,165,250,0.22); color: #ffffff; }
+  .country-opt:hover, .country-opt.active { background: rgba(96,165,250,0.22); }
   .country-opt .flag { font-size: 18px; flex-shrink: 0; }
-  .country-opt .kr-name { flex: 1; color: #ffffff; font-weight: 600; }
+  .country-opt .kr-name { flex: 1; font-weight: 600; }
   .country-opt .en-name { font-size: 12px; color: rgba(255,255,255,0.55); }
   .country-list::-webkit-scrollbar { width: 5px; }
   .country-list::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 3px; }
-
   .selected-tag {
     display: none; margin-top: 8px; padding: 8px 14px;
     background: rgba(96,165,250,0.12); border: 1px solid rgba(96,165,250,0.3);
@@ -103,63 +144,40 @@
   .selected-tag.show { display: inline-flex; }
   .tag-x { cursor: pointer; color: rgba(255,255,255,0.35); margin-left: 4px; font-size: 16px; }
   .tag-x:hover { color: #fff; }
-
-  /* 날짜/시간 행 */
-  .date-row { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 10px; }
-  .date-row .form-control { padding: 13px 10px; }
-  select.form-control { appearance: none; -webkit-appearance: none; cursor: pointer; }
-  select.form-control option { background: #162032; color: #fff; }
-
-  /* 이미지 업로드 */
-  .upload-area {
-    border: 2px dashed rgba(255,255,255,0.15); border-radius: 12px; padding: 28px;
-    text-align: center; cursor: pointer; transition: border-color 0.2s, background 0.2s; position: relative;
+  .btn-row { display: flex; gap: 10px; margin-top: 8px; }
+  .btn-save {
+    flex: 1; padding: 13px;
+    background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+    border: none; border-radius: 12px; color: #fff;
+    font-size: 15px; font-weight: 600; cursor: pointer;
+    transition: transform 0.15s, box-shadow 0.15s; font-family: 'Inter', sans-serif;
   }
-  .upload-area:hover { border-color: #60a5fa; background: rgba(96,165,250,0.05); }
-  .upload-area input[type="file"] { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
-  .upload-icon { font-size: 28px; margin-bottom: 8px; }
-  .upload-text { color: rgba(255,255,255,0.5); font-size: 13px; }
-  .upload-text span { color: #60a5fa; font-weight: 500; }
-  #preview-img { display: none; width: 100%; max-height: 200px; object-fit: cover; border-radius: 10px; margin-top: 12px; }
-
-  .btn-row { display: flex; gap: 12px; margin-top: 8px; }
-  .btn-submit {
-    flex: 1; padding: 14px; background: linear-gradient(135deg, #3b82f6, #1d4ed8);
-    border: none; border-radius: 12px; color: #fff; font-size: 15px; font-weight: 600;
-    cursor: pointer; font-family: 'Inter', sans-serif; transition: transform 0.15s, box-shadow 0.15s;
-  }
-  .btn-submit:hover { transform: translateY(-1px); box-shadow: 0 8px 24px rgba(59,130,246,0.45); }
+  .btn-save:hover { transform: translateY(-1px); box-shadow: 0 10px 28px rgba(59,130,246,0.5); }
   .btn-cancel {
-    padding: 14px 24px; background: rgba(255,255,255,0.07);
-    border: 1px solid rgba(255,255,255,0.12); border-radius: 12px;
+    padding: 13px 22px; border-radius: 12px;
+    background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.12);
     color: rgba(255,255,255,0.7); font-size: 15px; font-weight: 500;
     cursor: pointer; font-family: 'Inter', sans-serif; transition: all 0.15s;
   }
-  .btn-cancel:hover { background: rgba(255,255,255,0.12); color: #fff; }
+  .btn-cancel:hover { background: rgba(255,255,255,0.14); color: #fff; }
 </style>
 </head>
 <body>
-
 <nav class="nav-bar">
   <div class="nav-logo">Travel<span>Log</span></div>
-  <button class="nav-back" onclick="history.back()">← 돌아가기</button>
+  <button class="nav-btn" onclick="history.back()">← 뒤로</button>
 </nav>
-
 <div class="page-wrapper">
-  <div class="page-title">새 여행 일지</div>
-  <div class="page-sub">오늘의 여행을 기록해보세요</div>
-
-  <form name="writeform" method="post" action="write_Action.jsp" enctype="multipart/form-data">
-    <input type="hidden" name="trip" id="tripHidden">
-
-    <div class="card">
-
-      <!-- 국가 선택 -->
+  <div class="page-title">✏️ 여행 일지 수정</div>
+  <div class="form-card">
+    <form method="post" action="edit_Action.jsp" enctype="multipart/form-data">
+      <input type="hidden" name="ts" value="<%=safeTs%>">
+      <input type="hidden" name="trip" id="tripHidden" value="<%=safeTrip%>">
       <div class="form-group">
-        <label>국가 선택 (전 세계)</label>
+        <label>여행지</label>
         <div class="country-wrap">
           <input type="text" class="country-search" id="countrySearch"
-                 placeholder="🔍  국가명 검색 (예: 프랑스, Japan, 미국...)" autocomplete="off">
+                 placeholder="🔍  지역명 검색 (예: 구미, 서울, 제주...)" autocomplete="off">
           <div class="country-list" id="countryList"></div>
         </div>
         <div class="selected-tag" id="selectedTag">
@@ -168,53 +186,29 @@
           <span class="tag-x" onclick="clearSel()">✕</span>
         </div>
       </div>
-
-      <!-- 날짜 / 시간 -->
-      <div class="form-group">
-        <label>여행 날짜 &amp; 시간</label>
-        <div class="date-row">
-          <select name="wyear" class="form-control" id="wyear"></select>
-          <select name="wmonth" class="form-control" id="wmonth"></select>
-          <select name="wday" class="form-control" id="wday"></select>
-          <input type="time" name="wtime" class="form-control" id="wtime">
-        </div>
-      </div>
-
-      <!-- 제목 -->
       <div class="form-group">
         <label>제목</label>
-        <input type="text" name="title" class="form-control" placeholder="일지 제목을 입력하세요" maxlength="100">
+        <input type="text" name="title" value="<%=safeTitle%>" placeholder="제목 입력" maxlength="100" required>
       </div>
-
-      <!-- 내용 -->
       <div class="form-group">
         <label>내용</label>
-        <textarea name="memo" class="form-control" rows="8" placeholder="오늘의 여행 이야기를 자유롭게 써주세요..."></textarea>
+        <textarea name="memo" rows="8" placeholder="여행 이야기를 적어보세요" required><%=safeMemo%></textarea>
       </div>
-
-      <!-- 사진 -->
       <div class="form-group">
-        <label>사진 첨부</label>
-        <div class="upload-area">
-          <input type="file" name="image" accept="image/*" onchange="previewImage(this)">
-          <div class="upload-icon">📷</div>
-          <div class="upload-text"><span>클릭하여 사진 선택</span> 또는 드래그</div>
-        </div>
-        <img id="preview-img" alt="미리보기">
+        <label>이미지 변경 (선택)</label>
+        <input type="file" name="image" accept="image/*">
+        <% if (!dbImage.isEmpty()) { %>
+        <div class="current-image">현재 이미지: <span><%=dbImage%></span></div>
+        <% } %>
       </div>
-    </div>
-
-    <div class="btn-row">
-      <button type="button" class="btn-cancel" onclick="history.back()">취소</button>
-      <button type="button" class="btn-submit" onclick="writeCheck()">일지 등록</button>
-    </div>
-  </form>
+      <div class="btn-row">
+        <button type="submit" class="btn-save">저장하기</button>
+        <button type="button" class="btn-cancel" onclick="history.back()">취소</button>
+      </div>
+    </form>
+  </div>
 </div>
-
 <script>
-// ──────────────────────────────────────────────
-//  전 세계 국가 목록 (195개국)
-// ──────────────────────────────────────────────
 const COUNTRY_GROUPS = [
   { label: "🇰🇷 서울 · 광역시", list: [
     {kr:"서울",en:"Seoul",flag:"🇰🇷"},{kr:"부산",en:"Busan",flag:"🇰🇷"},
@@ -394,8 +388,6 @@ const COUNTRY_GROUPS = [
     {kr:"파나마",en:"Panama",flag:"🇵🇦"},{kr:"코스타리카",en:"Costa Rica",flag:"🇨🇷"},
     {kr:"과테말라",en:"Guatemala",flag:"🇬🇹"},{kr:"온두라스",en:"Honduras",flag:"🇭🇳"},
     {kr:"엘살바도르",en:"El Salvador",flag:"🇸🇻"},{kr:"니카라과",en:"Nicaragua",flag:"🇳🇮"},
-    {kr:"벨리즈",en:"Belize",flag:"🇧🇿"},{kr:"트리니다드토바고",en:"Trinidad & Tobago",flag:"🇹🇹"},
-    {kr:"바하마",en:"Bahamas",flag:"🇧🇸"},{kr:"바베이도스",en:"Barbados",flag:"🇧🇧"},
   ]},
   { label: "남아메리카", list: [
     {kr:"브라질",en:"Brazil",flag:"🇧🇷"},{kr:"아르헨티나",en:"Argentina",flag:"🇦🇷"},
@@ -403,60 +395,24 @@ const COUNTRY_GROUPS = [
     {kr:"콜롬비아",en:"Colombia",flag:"🇨🇴"},{kr:"베네수엘라",en:"Venezuela",flag:"🇻🇪"},
     {kr:"에콰도르",en:"Ecuador",flag:"🇪🇨"},{kr:"볼리비아",en:"Bolivia",flag:"🇧🇴"},
     {kr:"파라과이",en:"Paraguay",flag:"🇵🇾"},{kr:"우루과이",en:"Uruguay",flag:"🇺🇾"},
-    {kr:"가이아나",en:"Guyana",flag:"🇬🇾"},{kr:"수리남",en:"Suriname",flag:"🇸🇷"},
   ]},
   { label: "오세아니아", list: [
     {kr:"호주",en:"Australia",flag:"🇦🇺"},{kr:"뉴질랜드",en:"New Zealand",flag:"🇳🇿"},
     {kr:"파푸아뉴기니",en:"Papua New Guinea",flag:"🇵🇬"},{kr:"피지",en:"Fiji",flag:"🇫🇯"},
-    {kr:"솔로몬제도",en:"Solomon Islands",flag:"🇸🇧"},{kr:"바누아투",en:"Vanuatu",flag:"🇻🇺"},
-    {kr:"사모아",en:"Samoa",flag:"🇼🇸"},{kr:"통가",en:"Tonga",flag:"🇹🇴"},
-    {kr:"팔라우",en:"Palau",flag:"🇵🇼"},{kr:"키리바시",en:"Kiribati",flag:"🇰🇮"},
-    {kr:"투발루",en:"Tuvalu",flag:"🇹🇻"},
   ]},
-  { label: "북아프리카", list: [
+  { label: "아프리카", list: [
     {kr:"이집트",en:"Egypt",flag:"🇪🇬"},{kr:"모로코",en:"Morocco",flag:"🇲🇦"},
-    {kr:"알제리",en:"Algeria",flag:"🇩🇿"},{kr:"튀니지",en:"Tunisia",flag:"🇹🇳"},
-    {kr:"리비아",en:"Libya",flag:"🇱🇾"},{kr:"수단",en:"Sudan",flag:"🇸🇩"},
-  ]},
-  { label: "서아프리카", list: [
-    {kr:"나이지리아",en:"Nigeria",flag:"🇳🇬"},{kr:"가나",en:"Ghana",flag:"🇬🇭"},
-    {kr:"세네갈",en:"Senegal",flag:"🇸🇳"},{kr:"코트디부아르",en:"Ivory Coast",flag:"🇨🇮"},
-    {kr:"카메룬",en:"Cameroon",flag:"🇨🇲"},{kr:"말리",en:"Mali",flag:"🇲🇱"},
-    {kr:"부르키나파소",en:"Burkina Faso",flag:"🇧🇫"},{kr:"기니",en:"Guinea",flag:"🇬🇳"},
-    {kr:"토고",en:"Togo",flag:"🇹🇬"},{kr:"베냉",en:"Benin",flag:"🇧🇯"},
-    {kr:"시에라리온",en:"Sierra Leone",flag:"🇸🇱"},{kr:"감비아",en:"Gambia",flag:"🇬🇲"},
-    {kr:"라이베리아",en:"Liberia",flag:"🇱🇷"},{kr:"모리타니",en:"Mauritania",flag:"🇲🇷"},
-    {kr:"니제르",en:"Niger",flag:"🇳🇪"},{kr:"카보베르데",en:"Cape Verde",flag:"🇨🇻"},
-  ]},
-  { label: "동아프리카", list: [
-    {kr:"에티오피아",en:"Ethiopia",flag:"🇪🇹"},{kr:"케냐",en:"Kenya",flag:"🇰🇪"},
-    {kr:"탄자니아",en:"Tanzania",flag:"🇹🇿"},{kr:"우간다",en:"Uganda",flag:"🇺🇬"},
-    {kr:"르완다",en:"Rwanda",flag:"🇷🇼"},{kr:"소말리아",en:"Somalia",flag:"🇸🇴"},
-    {kr:"지부티",en:"Djibouti",flag:"🇩🇯"},{kr:"에리트레아",en:"Eritrea",flag:"🇪🇷"},
-    {kr:"남수단",en:"South Sudan",flag:"🇸🇸"},{kr:"부룬디",en:"Burundi",flag:"🇧🇮"},
-    {kr:"모잠비크",en:"Mozambique",flag:"🇲🇿"},{kr:"마다가스카르",en:"Madagascar",flag:"🇲🇬"},
-    {kr:"모리셔스",en:"Mauritius",flag:"🇲🇺"},{kr:"세이셸",en:"Seychelles",flag:"🇸🇨"},
-    {kr:"코모로",en:"Comoros",flag:"🇰🇲"},
-  ]},
-  { label: "중앙 · 남아프리카", list: [
-    {kr:"차드",en:"Chad",flag:"🇹🇩"},{kr:"중앙아프리카공화국",en:"C.A.R.",flag:"🇨🇫"},
-    {kr:"콩고공화국",en:"Rep. of Congo",flag:"🇨🇬"},{kr:"콩고민주공화국",en:"DR Congo",flag:"🇨🇩"},
-    {kr:"가봉",en:"Gabon",flag:"🇬🇦"},{kr:"적도기니",en:"Equatorial Guinea",flag:"🇬🇶"},
-    {kr:"남아프리카",en:"South Africa",flag:"🇿🇦"},{kr:"나미비아",en:"Namibia",flag:"🇳🇦"},
-    {kr:"보츠와나",en:"Botswana",flag:"🇧🇼"},{kr:"짐바브웨",en:"Zimbabwe",flag:"🇿🇼"},
-    {kr:"잠비아",en:"Zambia",flag:"🇿🇲"},{kr:"말라위",en:"Malawi",flag:"🇲🇼"},
-    {kr:"앙골라",en:"Angola",flag:"🇦🇴"},{kr:"레소토",en:"Lesotho",flag:"🇱🇸"},
-    {kr:"에스와티니",en:"Eswatini",flag:"🇸🇿"},
+    {kr:"나이지리아",en:"Nigeria",flag:"🇳🇬"},{kr:"케냐",en:"Kenya",flag:"🇰🇪"},
+    {kr:"남아프리카",en:"South Africa",flag:"🇿🇦"},{kr:"에티오피아",en:"Ethiopia",flag:"🇪🇹"},
+    {kr:"탄자니아",en:"Tanzania",flag:"🇹🇿"},{kr:"가나",en:"Ghana",flag:"🇬🇭"},
   ]},
 ];
 
-// 단일 배열로 변환
 const COUNTRIES = COUNTRY_GROUPS.flatMap(g => g.list);
-
-const searchEl = document.getElementById('countrySearch');
-const listEl   = document.getElementById('countryList');
-const hiddenEl = document.getElementById('tripHidden');
-const tagEl    = document.getElementById('selectedTag');
+const searchEl  = document.getElementById('countrySearch');
+const listEl    = document.getElementById('countryList');
+const hiddenEl  = document.getElementById('tripHidden');
+const tagEl     = document.getElementById('selectedTag');
 
 function buildList(arr, grouped) {
   listEl.innerHTML = '';
@@ -508,64 +464,22 @@ searchEl.addEventListener('input', function() {
 });
 searchEl.addEventListener('blur', () => setTimeout(() => listEl.classList.remove('show'), 180));
 
-// 날짜 셀렉트 초기화
+// 기존 여행지 값 미리 선택
 (function() {
-  const now = new Date();
-  const yEl = document.getElementById('wyear');
-  const mEl = document.getElementById('wmonth');
-  const dEl = document.getElementById('wday');
-  const tEl = document.getElementById('wtime');
-
-  for (let y = now.getFullYear(); y >= 2000; y--) {
-    const o = document.createElement('option');
-    o.value = y; o.textContent = y + '년';
-    if (y === now.getFullYear()) o.selected = true;
-    yEl.appendChild(o);
+  const saved = hiddenEl.value;
+  if (!saved) return;
+  const found = COUNTRIES.find(c => c.kr === saved);
+  if (found) {
+    document.getElementById('selFlag').textContent = found.flag + ' ';
+    document.getElementById('selName').textContent = found.kr + ' (' + found.en + ')';
+    tagEl.classList.add('show');
+  } else {
+    // 목록에 없는 값이면 이름만 표시
+    document.getElementById('selFlag').textContent = '📍 ';
+    document.getElementById('selName').textContent = saved;
+    tagEl.classList.add('show');
   }
-  for (let m = 1; m <= 12; m++) {
-    const o = document.createElement('option');
-    o.value = String(m).padStart(2,'0'); o.textContent = m + '월';
-    if (m === now.getMonth()+1) o.selected = true;
-    mEl.appendChild(o);
-  }
-  function fillDays() {
-    const y = parseInt(yEl.value), m = parseInt(mEl.value);
-    const max = new Date(y, m, 0).getDate();
-    const cur = parseInt(dEl.value) || now.getDate();
-    dEl.innerHTML = '';
-    for (let d = 1; d <= max; d++) {
-      const o = document.createElement('option');
-      o.value = String(d).padStart(2,'0'); o.textContent = d + '일';
-      if (d === Math.min(cur, max)) o.selected = true;
-      dEl.appendChild(o);
-    }
-  }
-  fillDays();
-  yEl.addEventListener('change', fillDays);
-  mEl.addEventListener('change', fillDays);
-
-  const hh = String(now.getHours()).padStart(2,'0');
-  const mm = String(now.getMinutes()).padStart(2,'0');
-  tEl.value = hh + ':' + mm;
 })();
-
-function writeCheck() {
-  if (!hiddenEl.value) { alert("국가를 선택해주세요"); searchEl.focus(); return; }
-  const f = document.writeform;
-  if (!f.title.value) { alert("제목을 입력해주세요"); f.title.focus(); return; }
-  if (!f.memo.value) { alert("내용을 입력해주세요"); f.memo.focus(); return; }
-  f.submit();
-}
-
-function previewImage(input) {
-  const img = document.getElementById('preview-img');
-  if (input.files && input.files[0]) {
-    const reader = new FileReader();
-    reader.onload = e => { img.src = e.target.result; img.style.display = 'block'; };
-    reader.readAsDataURL(input.files[0]);
-    document.querySelector('.upload-text').innerHTML = '<span>' + input.files[0].name + '</span>';
-  }
-}
 </script>
 </body>
 </html>
