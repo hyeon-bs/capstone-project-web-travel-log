@@ -27,18 +27,6 @@ https://github.com/user-attachments/assets/4ab15f20-7c30-4f89-8175-2987a774cdff
 - **캐시 제어 헤더 적용:** 민감한 페이지에 `no-store, no-cache` 헤더를 설정하여 브라우저 뒤로가기를 통한 세션 우회를 방지했습니다.
 - **보안 설정 분리:** `src/db.properties`를 `.gitignore`에 등록하고 `db.properties.example` 템플릿을 제공하여 자격증명이 레포지토리에 커밋되지 않도록 구성했습니다.
 
-### v2 실행 결과
-
-#### 게시판 화면
-<img src="docs/static/게시판 화면.png" width="650" />
-
-게시글 목록과 함께 수정·삭제 버튼이 추가된 화면입니다. 작성자 본인 게시글에만 해당 버튼이 노출됩니다.
-
-#### 여행일지 게시판
-<img src="docs/static/여행일지 게시판.png" width="650" />
-
----
-
 ## 프로젝트 개요
 
 여행 중 느낀 경험과 감정을 스스로 기록하고 되돌아볼 수 있는 개인 다이어리형 웹 애플리케이션입니다.
